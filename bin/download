@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# asdf calls this as bin/download and expects a path on stdout.
+# We don't actually download anything here because Homebrew handles PHP,
+# so we just ensure the directory exists and echo it back.
+download_path="${ASDF_DOWNLOAD_PATH:-.}"
+
+mkdir -p "$download_path"
+echo "$download_path"

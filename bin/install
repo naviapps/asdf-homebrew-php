@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+current_script_path="${BASH_SOURCE[0]}"
+plugin_dir="$(dirname "$(dirname "$current_script_path")")"
+
+# shellcheck source=./lib/utils.bash
+source "${plugin_dir}/lib/utils.bash"
+
+install_php() {
+	local install_type="$1"
+	local raw_version="$2"
+	local install_path="$3"
+
+	ensure_homebrew_php_backend_available
+	validate_install_args "$install_type" "$raw_version" "$install_path"
+
+	local version
+	version="$(normalize_php_version "$raw_version")"
+
+	ensure_version_supported "$version"
+
+	mkdir -p "$install_path/bin"
+
+	local stable_minor_version
+	stable_minor_version="$(get_stable_php_minor_version || true)"
+
+	local short_formula
+	local formula
+	read -r short_formula formula < <(resolve_php_formula "$version" "$stable_minor_version")
+
+	install_and_link_php "$short_formula" "$formula" "$install_path"
+}
+
+validate_install_args() {
+	local install_type="$1"
+	local version="$2"
+	local install_path="$3"
+
+	if [ -n "$install_type" ] && [ "$install_type" != "version" ]; then
+		fail "Unsupported install type: $install_type"
+	fi
+
+	if [ -z "$version" ] || [ -z "$install_path" ]; then
+		fail "version and install_path are required"
+	fi
+}
+
+ensure_version_supported() {
+	local version="$1"
+
+	local supported_versions
+	supported_versions="$(list_supported_php_versions)"
+
+	if ! printf '%s\n' "$supported_versions" | grep -Fxq "$version"; then
+		fail "$(printf 'Unsupported PHP version: %s\nSupported versions:\n%s' "$version" "$supported_versions")"
+	fi
+}
+
+resolve_php_formula() {
+	local version="$1"
+	local stable_minor_version="$2"
+
+	local short_formula
+	local formula
+
+	if [ -n "$stable_minor_version" ] && [ "$version" = "$stable_minor_version" ]; then
+		short_formula="php"
+		formula="shivammathur/php/php"
+	else
+		short_formula="php@${version}"
+		formula="shivammathur/php/php@${version}"
+	fi
+
+	printf '%s %s\n' "$short_formula" "$formula"
+}
+
+install_and_link_php() {
+	local short_formula="$1"
+	local formula="$2"
+	local install_path="$3"
+
+	echo "==> Installing ${formula} via Homebrew (if needed)..." >&2
+	if ! brew list --versions "$short_formula" >/dev/null 2>&1; then
+		brew install "$formula"
+	fi
+
+	local prefix
+	prefix="$(brew --prefix "$short_formula")"
+
+	if [ ! -x "$prefix/bin/php" ]; then
+		fail "php binary not found under: $prefix/bin/php"
+	fi
+
+	ln -sf "$prefix/bin/php" "$install_path/bin/php"
+}
+
+install_composer() {
+	local install_path="$1"
+	local bin_path="${install_path}/bin"
+
+	mkdir -p "$bin_path"
+
+	if [ -x "$bin_path/composer" ]; then
+		return 0
+	fi
+
+	if [ ! -x "$bin_path/php" ]; then
+		fail "php binary not found under: $bin_path/php"
+	fi
+
+	local expected_signature
+	expected_signature="$(curl -fsSL https://composer.github.io/installer.sig)"
+
+	local composer_installer
+	composer_installer="${bin_path}/composer-setup.php"
+
+	"$bin_path/php" -r "copy('https://getcomposer.org/installer', '${composer_installer}');"
+	"$bin_path/php" -r "if (hash_file('sha384', '${composer_installer}') === '${expected_signature}') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('${composer_installer}'); } echo PHP_EOL;"
+	"$bin_path/php" "${composer_installer}" --install-dir="$bin_path" --filename=composer
+	"$bin_path/php" -r "unlink('${composer_installer}');"
+}
+
+install_php "$ASDF_INSTALL_TYPE" "$ASDF_INSTALL_VERSION" "$ASDF_INSTALL_PATH"
+install_composer "$ASDF_INSTALL_PATH"
