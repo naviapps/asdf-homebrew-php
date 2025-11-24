@@ -1,8 +1,10 @@
 # asdf-homebrew-php
 
-Homebrew‑based PHP plugin for **asdf** and **mise**.
+## About this plugin
 
-This plugin installs PHP using the official `shivammathur/homebrew-php` tap, and exposes the correct `php` and `composer` binaries via asdf/mise.
+This plugin provides version switching for the official Homebrew PHP builds on macOS. It is designed for environments where Homebrew PHP is already the standard and a source-build backend would add unnecessary complexity or instability, and acts as a Homebrew-based PHP plugin for **asdf** and **mise**.
+
+This plugin installs PHP using the official `shivammathur/homebrew-php` tap, and exposes the `php` and `composer` binaries via asdf/mise.
 
 > **macOS only** — This plugin depends on Homebrew and does not support Linux.
 
@@ -11,10 +13,8 @@ This plugin installs PHP using the official `shivammathur/homebrew-php` tap, and
 ## Requirements
 
 * macOS (Apple Silicon or Intel)
-* [Homebrew](https://brew.sh/)
+* Homebrew (the `shivammathur/php` tap will be added automatically when needed)
 * asdf **or** mise
-
-Homebrew tap is added automatically when needed.
 
 ---
 
@@ -24,7 +24,7 @@ Homebrew tap is added automatically when needed.
 asdf plugin add homebrew-php https://github.com/naviapps/asdf-homebrew-php.git
 ```
 
-Install PHP via Homebrew:
+Install PHP via this plugin (backed by Homebrew):
 
 ```bash
 asdf install homebrew-php latest
@@ -62,7 +62,7 @@ php -v
 ## How versions work
 
 * `latest` → resolves to Homebrew’s current `php` alias (e.g. `8.4`)
-* Specific versions must match Homebrew formulae (`php@8.3`, `php@8.4`, …)
+* Specific versions correspond to Homebrew formulae (e.g. use `8.3`, `8.4`, … for `php@8.3`, `php@8.4`, …)
 * Run:
 
 ```bash
@@ -76,6 +76,7 @@ mise list-remote homebrew-php
 ## Composer
 
 Composer is installed automatically **per PHP installation**.
+This avoids relying on the Homebrew `composer` formula and ensures each PHP installation has its own isolated Composer environment.
 
 It becomes available as:
 
@@ -83,7 +84,7 @@ It becomes available as:
 composer -V
 ```
 
-Global composer vendor binaries also work automatically.
+Global composer vendor binaries also work automatically because `.composer/vendor/bin` is added to `PATH`.
 
 ---
 
@@ -92,4 +93,14 @@ Global composer vendor binaries also work automatically.
 * macOS only
 * Depends entirely on the `shivammathur/homebrew-php` tap
 * Only versions available in that tap can be installed
-* PHP extensions (intl, gd, imagick etc.) must be installed separately via Homebrew or pecl if needed
+* PHP extensions (intl, gd, imagick etc.) must be installed separately, for example via Homebrew or pecl
+
+---
+
+## Relation to other PHP plugins
+
+Source‑build PHP plugins for asdf may behave less predictably on macOS because they rely on system libraries that Homebrew updates frequently. This can occasionally cause build failures, especially on newer macOS versions or Apple Silicon.
+
+This plugin uses Homebrew to install PHP, which offers a more consistent and lower-maintenance experience on macOS.
+
+If you encounter issues related to Homebrew PHP versions or installation behavior, please open an issue in this repository.
